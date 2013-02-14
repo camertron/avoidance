@@ -31,6 +31,14 @@ module Avoidance
         [fetch_target]
       end
 
+      def method_missing(method, *args, &block)
+        @target.send(method, *args, &block)
+      end
+
+      def respond_to?(method, include_private = false)
+        super || @target.respond_to?(method, include_private)
+      end
+
       def persist!(create_new = false, new_parent = nil)
         @parent = new_parent if new_parent
 

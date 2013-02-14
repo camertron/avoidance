@@ -14,9 +14,14 @@ module Avoidance
       end
 
       def method_missing(method, *args, &block)
-        targets.each do |target|
-          target.send(method, *args, &block)
-        end
+        targets.send(method, *args, &block)
+        # targets.each do |target|
+        #   target.send(method, *args, &block)
+        # end
+      end
+
+      def respond_to?(method, include_private = false)
+        super || targets.respond_to?(method, include_private)
       end
 
       def wrap(target)
@@ -31,6 +36,11 @@ module Avoidance
         target.send(association.association_primary_key)
       end
 
+      def class
+        association.klass
+      end
+
     end
 
+  end
 end

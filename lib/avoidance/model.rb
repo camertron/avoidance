@@ -31,7 +31,7 @@ module Avoidance
       @model
     end
 
-    def errors
+    def full_errors      
       errors_without_associations(@model).merge(
         association_cache.inject({}) do |ret, (name, association)|
           assoc_errors = association.targets.map(&:errors).select { |err| !err.empty? }
@@ -41,35 +41,40 @@ module Avoidance
       )
     end
 
-    def flat_errors
-      flatten_errors(errors)
+    def errors
+      errors = full_errors.inject({}) do |ret, (attr, errors)|
+        ret[attr] = flatten_errors(errors) if errors
+      end
+
+      error_hash = ActiveModel::Errors.new(@model)
+      error_hash.instance_variable_get(:'@messages').replace(errors)
+      error_hash
     end
 
     def valid?
+      attributes_for_write.each do |attr|
+        @model.send(:"#{attr}=", @attributes[attr])
+      end
+
       @model.valid?
       association_cache.each_pair do |name, association|
         association.targets.each do |target|
           target.valid?
         end
       end
-      flat_errors.size == 0
+      errors.size == 0
     end
 
-    private
-
-    def flatten_errors(errors)
-      return errors if errors.is_a?(String)
-      errors.inject([]) do |ret, (field, errors)|
-        ret += errors.flat_map { |hash| flatten_errors(hash) }
+    def update_attributes(attributes, options = {})
+      columns = attributes_for_write(options)
+      attributes.each_pair do |key, val|
+        @attributes[key] = val if columns.include?(key)
       end
+
+      nil
     end
 
-    def errors_without_associations(model)
-      association_names = model.class.reflect_on_all_associations.map { |assoc| assoc.foreign_key.to_sym }
-      model.errors.messages.select do |field, errors|
-        !association_names.include?(field)
-      end
-    end
+    alias :assign_attributes :update_attributes
 
     def persist!(create_new = false, new_parent = nil)
       skip = false
@@ -85,9 +90,43 @@ module Avoidance
           end
         end
 
+        @model.save
+
         association_cache.each_pair do |name, association|
           association.persist!(create_new, new_parent)
         end
+      end
+    end
+
+    def method_missing(method, *args, &block)
+      @model.send(method, *args, &block)
+    end
+
+    def respond_to?(method, include_private = false)
+      super || @model.respond_to?(method, include_private)
+    end
+
+    private
+
+    def attributes_for_write(options = {})
+      if options[:without_protection] || @model.class.accessible_attributes.empty?
+        @model.class.columns.map(&:name)
+      else
+        @model.class.accessible_attributes.to_a
+      end
+    end
+
+    def flatten_errors(errors)
+      return errors if errors.is_a?(String)
+      errors.inject([]) do |ret, (field, errors)|
+        ret += errors.flat_map { |hash| flatten_errors(hash) } if errors
+      end
+    end
+
+    def errors_without_associations(model)
+      association_names = model.class.reflect_on_all_associations.map { |assoc| assoc.foreign_key.to_sym }
+      model.errors.messages.select do |field, errors|
+        !association_names.include?(field)
       end
     end
 
@@ -116,13 +155,26 @@ module Avoidance
 
       def class_for(const)
         class_cache[const] ||= Class.new(Avoidance::Model) do
+          @klass = const
+
           const.columns.each do |column|
             define_method(:"#{column.name}") do
-              @attributes[column.name]
+              columns_by_name[column.name].type_cast(@attributes[column.name])
             end
 
             define_method(:"#{column.name}=") do |value|
               @attributes[column.name] = value
+            end
+
+            define_method(:columns_by_name) do
+              @columns_by_name ||= const.columns.inject({}) do |ret, col|
+                ret[col.name] = col
+                ret
+              end
+            end
+
+            define_method(:class) do
+              const
             end
           end
 
