@@ -44,6 +44,7 @@ module Avoidance
     def errors
       errors = full_errors.inject({}) do |ret, (attr, errors)|
         ret[attr] = flatten_errors(errors) if errors
+        ret
       end
 
       error_hash = ActiveModel::Errors.new(@model)
@@ -117,9 +118,11 @@ module Avoidance
     end
 
     def flatten_errors(errors)
-      return errors if errors.is_a?(String)
+      return [errors] if errors.is_a?(String)
+      return errors if errors.is_a?(Array)
       errors.inject([]) do |ret, (field, errors)|
         ret += errors.flat_map { |hash| flatten_errors(hash) } if errors
+        ret
       end
     end
 
