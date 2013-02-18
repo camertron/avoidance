@@ -13,9 +13,8 @@ module Avoidance
         targets.each do |target|
           if create_new
             target.model = target.model.dup
-            target.model.save
-            parent.send(association.name) << target.model
             target.persist!(create_new, target.model)
+            parent.send(association.name) << target.model
           else
             if target.id.nil? || current_ids.include?(target.id) || new_ids.include?(target.id)
               # new or changed/unchanged

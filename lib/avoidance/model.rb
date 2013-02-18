@@ -39,7 +39,7 @@ module Avoidance
     def full_errors      
       errors_without_associations(@model).merge(
         association_cache.inject({}) do |ret, (name, association)|
-          assoc_errors = association.targets.map(&:errors).select { |err| !err.empty? }
+          assoc_errors = association.targets.compact.map(&:errors).select { |err| !err.empty? }
           ret[association.association.name] = assoc_errors
           ret
         end
@@ -112,6 +112,26 @@ module Avoidance
       super || @model.respond_to?(method, include_private)
     end
 
+    def fetch_all(models = {}, visited = {})
+      # recursively call #targets on each association, which will load them in
+      # preparation for duplication (or whatever)
+      key = "#{@model.class.to_s}-#{@model.id}"
+      @model.class.reflect_on_all_associations.each do |association|
+        if models.include?(association.name)
+          "#{key}-#{association.name}".tap do |key_assoc|
+            unless visited.include?(key_assoc)
+              visited[key_assoc] = true
+              self.send(association.name).targets.each do |t|
+                if t.respond_to?(:fetch_all)
+                  t.fetch_all(models[association.name] || {}, visited)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
     private
 
     def attributes_for_write(options = {})
@@ -135,24 +155,6 @@ module Avoidance
       association_names = model.class.reflect_on_all_associations.map { |assoc| assoc.foreign_key.to_sym }
       model.errors.messages.select do |field, errors|
         !association_names.include?(field)
-      end
-    end
-
-    def fetch_all(models = {}, visited = {})
-      # recursively call #targets on each association, which will load them in
-      # preparation for duplication (or whatever)
-      key = "#{@model.class.to_s}-#{@model.id}"
-      @model.class.reflect_on_all_associations.each do |association|
-        if models.include?(association.name)
-          "#{key}-#{association.name}".tap do |key_assoc|
-            unless visited.include?(key_assoc)
-              visited[key_assoc] = true
-              self.send(association.name).targets.each do |t|
-                t.fetch_all(models[association.name] || {}, visited) if t.respond_to?(:fetch_all)
-              end
-            end
-          end
-        end
       end
     end
 
