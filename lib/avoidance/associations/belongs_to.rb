@@ -44,15 +44,12 @@ module Avoidance
 
         if create_new
           @target.model = @target.model.dup
-          @target.model.send(:"#{association.foreign_key}=", parent.send(association.association_primary_key.to_sym))
-          @target.model.save
+          @target.send(:"#{association.foreign_key}=", parent.send(association.association_primary_key.to_sym))
           @target.persist!(create_new, @target.model)
         else
           if @target
-            @target.model.save
+            @target.send(:"#{association.foreign_key}=", parent.send(association.association_primary_key.to_sym))
             @target.persist!
-            @target.model.send(:"#{association.foreign_key}=", parent.send(association.association_primary_key.to_sym))
-            @target.model.save
           else
             parent.send(association.name).delete if @touched
           end

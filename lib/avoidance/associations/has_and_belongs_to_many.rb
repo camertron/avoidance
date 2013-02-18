@@ -17,11 +17,7 @@ module Avoidance
             parent.send(association.name) << target.model
             target.persist!(create_new, target.model)
           else
-            if current_ids.include?(target.id) && !new_ids.include?(target.id)
-              # deleted
-              target.delete
-              target.persist!(create_new)
-            elsif target.id.nil? || current_ids.include?(target.id) || new_ids.include?(target.id)
+            if target.id.nil? || current_ids.include?(target.id) || new_ids.include?(target.id)
               # new or changed/unchanged
               target.model.save
               target.persist!(create_new)
@@ -34,6 +30,12 @@ module Avoidance
               list << target.model unless list.include?(target.model)
               target.model.save
             end
+          end
+        end
+
+        if !create_new
+          @deleted_records.each do |target|
+            parent.send(association.name).delete(target.model)
           end
         end
       end

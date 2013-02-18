@@ -3,12 +3,17 @@
 module Avoidance
 
   class Model
-    attr_reader :attributes, :deleted
-    attr_accessor :model
+    attr_reader :attributes
+    attr_accessor :model, :deleted
 
     def initialize(model)
       @model = model
-      @attributes = model.attributes.dup
+
+      @attributes = model.class.columns.inject({}) do |ret, col|
+        ret[col.name.to_s] = model.send(col.name)
+        ret
+      end
+
       @deleted = false
     end
 
@@ -28,7 +33,7 @@ module Avoidance
       id = @model.id
       persist!(true, @model)
       @model.id = id
-      @model
+      @model.detach
     end
 
     def full_errors      
