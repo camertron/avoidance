@@ -10,8 +10,11 @@ module Avoidance
         current_ids = parent.send(association.name).pluck(:id)
         new_ids = targets.map(&:id).compact
 
+        klass = association.klass
+        persist_duplicate = !(klass.respond_to?(:singleton?) && klass.singleton?)
+
         targets.each do |target|
-          if create_new
+          if create_new && persist_duplicate
             target.model = target.model.dup
             target.persist!(create_new, target.model)
             parent.send(association.name) << target.model

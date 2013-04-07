@@ -56,14 +56,16 @@ module Avoidance
       alias :new :create
 
       def delete(target)
+        target = wrap(target)
         target.deleted = true
+        primary_key = target.model.class.primary_key.to_sym
+
+        index = @targets.index do |t|
+          target.send(primary_key) == t.send(primary_key)
+        end
+
+        @targets.delete_at(index) if index
         @deleted_records << target
-        @targets.delete_at(
-          @targets.index do |t|
-            primary_key = target.model.class.primary_key.to_sym
-            target.send(primary_key) == t.send(primary_key)
-          end
-        )
       end
 
       def clear
