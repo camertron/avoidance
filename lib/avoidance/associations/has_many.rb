@@ -69,6 +69,8 @@ module Avoidance
       end
 
       def clear
+        @deleted_records += @targets
+        @targets.each { |t| t.deleted = true }
         @targets = []
       end
 
@@ -88,7 +90,7 @@ module Avoidance
       end
 
       def targets
-        @targets
+        @targets.compact
       end
 
       def persist!(create_new = false, new_parent = nil)
@@ -106,7 +108,9 @@ module Avoidance
               # new or changed/unchanged
               target.persist!(create_new)
 
-              unless target.deleted
+              if target.deleted
+                parent.send(association.name).delete(target.model)
+              else
                 target.model.send(:"#{association.foreign_key}=", parent.send(association.association_primary_key.to_sym))
                 target.model.save
               end
