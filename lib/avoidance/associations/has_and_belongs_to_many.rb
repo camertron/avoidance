@@ -7,7 +7,7 @@ module Avoidance
     class HasAndBelongsToManyAssociation < HasManyAssociation
       def persist!(create_new = false, new_parent = nil)
         @parent = new_parent if new_parent
-        current_ids = parent.send(association.name).pluck(:id)
+        current_ids = parent.send(association.name).map(&:id)
         new_ids = targets.map(&:id).compact
 
         klass = association.klass
