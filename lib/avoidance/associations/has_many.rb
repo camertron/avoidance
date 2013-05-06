@@ -96,6 +96,12 @@ module Avoidance
         current_ids = parent.send(association.name).pluck(:id)
         new_ids = targets.map(&:id).compact
 
+        if !create_new
+          @deleted_records.each do |target|
+            target.model.delete
+          end
+        end
+
         targets.each do |target|
           if create_new
             target.model = target.model.dup
@@ -111,12 +117,6 @@ module Avoidance
                 target.model.save
               end
             end
-          end
-        end
-
-        if !create_new
-          @deleted_records.each do |target|
-            target.model.delete
           end
         end
       end

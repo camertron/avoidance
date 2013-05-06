@@ -13,6 +13,12 @@ module Avoidance
         klass = association.klass
         persist_duplicate = !(klass.respond_to?(:singleton?) && klass.singleton?)
 
+        if !create_new
+          @deleted_records.each do |target|
+            parent.send(association.name).delete(target.model)
+          end
+        end
+
         targets.each do |target|
           if create_new && persist_duplicate
             target.model = target.model.dup
@@ -32,12 +38,6 @@ module Avoidance
               list << target.model unless list.include?(target.model)
               target.model.save
             end
-          end
-        end
-
-        if !create_new
-          @deleted_records.each do |target|
-            parent.send(association.name).delete(target.model)
           end
         end
       end
